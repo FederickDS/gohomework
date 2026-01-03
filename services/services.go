@@ -1,6 +1,12 @@
 package services
 
-import "errors"
+import (
+	"context"
+	"errors"
+	"fmt"
+	
+	"github.com/redis/go-redis/v9"
+)
 
 type Aritmetico struct{}
 
@@ -31,5 +37,47 @@ func (t *Aritmetico) Fibonacci(args *Args, res *Result) error {
 	}
 	
 	res.Value = f2
+	return nil
+}
+
+// --- SERVIZIO STATEFUL CON REDIS ---
+
+// Contatore service per tenere traccia delle richieste per utente
+type Contatore struct {
+	RedisClient *redis.Client
+}
+
+// CounterArgs - Input per il servizio Counter
+type CounterArgs struct {
+	Username string
+	Password string
+}
+
+// CounterResult - Risultato del servizio Counter
+type CounterResult struct {
+	RequestCount int
+	Message      string
+}
+
+// Counter incrementa il contatore di richieste per l'utente specificato
+func (c *Contatore) Counter(args *CounterArgs, res *CounterResult) error {
+	if args.Username == "" || args.Password == "" {
+		return errors.New("username e password non possono essere vuoti")
+	}
+	
+	ctx := context.Background()
+	
+	// Chiave Redis: "user:<username>:count"
+	key := fmt.Sprintf("user:%s:count", args.Username)
+	
+	// Incrementa il contatore in Redis
+	count, err := c.RedisClient.Incr(ctx, key).Result()
+	if err != nil {
+		return fmt.Errorf("errore Redis: %v", err)
+	}
+	
+	res.RequestCount = int(count)
+	res.Message = fmt.Sprintf("Richiesta #%d per l'utente %s", count, args.Username)
+	
 	return nil
 }

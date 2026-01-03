@@ -7,17 +7,24 @@ import (
 	"os"
 	"strconv"
 	
+	"project/nameserver"
 	"project/services"
 )
 
-// Indirizzo server (all'inizio preimpostato)
-var serverAddr string = "localhost:12345"
+// Lista dei server disponibili ottenuta dal NameServer
+var availableServers []string
+
+// Indirizzo server selezionato dal load balancer
+var serverAddr string
 
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Printf("Usage: %s <type of service (0 - fibonacci, 1 - counter)> [<other args>]\n", os.Args[0])
 		os.Exit(1)
 	}
+	
+	// Esegui lookup dei server disponibili dal NameServer
+	lookup()
 	
 	// Controlla il tipo di funzione
 	serviceType := os.Args[1]
@@ -30,6 +37,45 @@ func main() {
 		fmt.Printf("Invalid service type. Use 0 for fibonacci or 1 for counter\n")
 		os.Exit(1)
 	}
+}
+
+// lookup contatta il NameServer per ottenere la lista dei server disponibili
+func lookup() {
+	nameServerAddr := "localhost:9000" // Indirizzo hardcoded del NameServer
+	
+	log.Printf("Contatto il NameServer su %s per ottenere i server disponibili...", nameServerAddr)
+	
+	// Connessione al NameServer
+	client, err := rpc.Dial("tcp", nameServerAddr)
+	if err != nil {
+		log.Fatalf("ERRORE: Impossibile connettersi al NameServer: %v", err)
+	}
+	defer client.Close()
+	
+	// Prepara argomenti per la lookup (per ora vuoti)
+	args := nameserver.LookupArgs{}
+	var reply nameserver.LookupReply
+	
+	// Chiamata RPC per lookup
+	err = client.Call("NameServer.Lookup", &args, &reply)
+	if err != nil {
+		log.Fatalf("ERRORE durante la lookup: %v", err)
+	}
+	
+	// Verifica che ci siano server disponibili
+	if len(reply.Servers) == 0 {
+		log.Fatalf("ERRORE: Nessun server disponibile. Avvia almeno un server prima del client.")
+	}
+	
+	availableServers = reply.Servers
+	log.Printf("Trovati %d server disponibili:", len(availableServers))
+	for i, server := range availableServers {
+		log.Printf("  [%d] %s", i, server)
+	}
+	
+	// Per ora selezioniamo sempre il primo server (fase 5: load balancing)
+	serverAddr = availableServers[0]
+	log.Printf("Selezionato server: %s", serverAddr)
 }
 
 func fibonacci() {
