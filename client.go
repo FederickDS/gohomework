@@ -11,10 +11,13 @@ import (
 )
 
 // Lista dei server disponibili ottenuta dal NameServer
-var availableServers []string
+var availableServers []nameserver.ServerInfo
 
 // Indirizzo server selezionato dal load balancer
 var serverAddr string
+
+//Tipo di load balancing scelto
+var loadBlancingType string
 
 func main() {
 	if len(os.Args) < 2 {
@@ -26,7 +29,7 @@ func main() {
 	// Esegui lookup dei server disponibili dal NameServer
 	lookup()
 	
-	//ciclo while infinito per ricevere le richieste
+	//ciclo infinito per ricevere le richieste
 	for ; ; {
 		var serviceType int
 		fmt.Println("Service lookup. You can ask:")

@@ -34,11 +34,30 @@ func (ns *NameServer) Register(args *nameserver.RegisterArgs, reply *nameserver.
 		return fmt.Errorf("indirizzo vuoto")
 	}
 	
+	// Valida il peso (deve essere tra 0 e 1)
+	weight := args.Weight
+	if weight <= 0 || weight > 1 {
+		weight = 1.0 // Peso di default
+		log.Printf("Peso non valido per %s, impostato a default 1.0", args.Address)
+	}
+	
 	// Controlla se il server è già registrato
-	if _, exists := ns.servers[args.Address]; exists {
-		reply.Success = true
-		reply.Message = fmt.Sprintf("Server %s già registrato", args.Address)
-		log.Printf("Server %s già presente, aggiornato", args.Address)
+	if existing, exists := ns.servers[args.Address]; exists {
+		// Aggiorna il peso se diverso
+		if existing.Weight != weight {
+			ns.servers[args.Address] = nameserver.ServerInfo{
+				Address: args.Address,
+				Port:    extractPort(args.Address),
+				Weight:  weight,
+			}
+			reply.Success = true
+			reply.Message = fmt.Sprintf("Server %s già registrato, peso aggiornato a %.2f", args.Address, weight)
+			log.Printf("Server %s peso aggiornato: %.2f", args.Address, weight)
+		} else {
+			reply.Success = true
+			reply.Message = fmt.Sprintf("Server %s già registrato con peso %.2f", args.Address, weight)
+			log.Printf("Server %s già presente", args.Address)
+		}
 		return nil
 	}
 	
@@ -46,12 +65,13 @@ func (ns *NameServer) Register(args *nameserver.RegisterArgs, reply *nameserver.
 	ns.servers[args.Address] = nameserver.ServerInfo{
 		Address: args.Address,
 		Port:    extractPort(args.Address),
+		Weight:  weight,
 	}
 	
 	reply.Success = true
-	reply.Message = fmt.Sprintf("Server %s registrato con successo", args.Address)
+	reply.Message = fmt.Sprintf("Server %s registrato con successo (peso: %.2f)", args.Address, weight)
 	
-	log.Printf("Nuovo server registrato: %s", args.Address)
+	log.Printf("Nuovo server registrato: %s (peso: %.2f)", args.Address, weight)
 	log.Printf("Totale server registrati: %d", len(ns.servers))
 	
 	return nil
@@ -87,14 +107,14 @@ func (ns *NameServer) Deregister(args *nameserver.DeregisterArgs, reply *nameser
 	return nil
 }
 
-// Lookup restituisce la lista di tutti i server registrati (fase 4)
+// Lookup restituisce la lista di tutti i server registrati con i loro pesi
 func (ns *NameServer) Lookup(args *nameserver.LookupArgs, reply *nameserver.LookupReply) error {
 	ns.mu.RLock()
 	defer ns.mu.RUnlock()
 	
-	reply.Servers = make([]string, 0, len(ns.servers))
-	for addr := range ns.servers {
-		reply.Servers = append(reply.Servers, addr)
+	reply.Servers = make([]nameserver.ServerInfo, 0, len(ns.servers))
+	for _, serverInfo := range ns.servers {
+		reply.Servers = append(reply.Servers, serverInfo)
 	}
 	
 	log.Printf("Lookup richiesto: restituiti %d server", len(reply.Servers))

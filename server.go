@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"context"
 	"log"
 	"net"
@@ -17,8 +18,18 @@ import (
 func main() {
 	// Porta di default o da argomento
 	port := ":12345"
+	serverWeight := 1.0
+
 	if len(os.Args) > 1 {
 		port = ":" + os.Args[1]
+	}
+
+	if len(os.Args) > 2 {
+		_, err := fmt.Sscanf(os.Args[2], "%f", &serverWeight)
+		if err != nil || serverWeight <= 0 || serverWeight > 1 {
+			log.Printf("Peso non valido '%s', uso default 1.0", os.Args[2])
+			serverWeight = 1.0
+		}
 	}
 	
 	// Configura connessione Redis
@@ -76,7 +87,7 @@ func main() {
 	
 	// Registra questo server sul NameServer prima di accettare richieste
 	serverAddress := lis.Addr().String()
-	registerWithNameServer(serverAddress)
+	registerWithNameServer(serverAddress, serverWeight)
 	
 	// Setup signal handler per deregistrazione pulita
 	sigChan := make(chan os.Signal, 1)
@@ -96,10 +107,10 @@ func main() {
 }
 
 // registerWithNameServer registra questo server sul NameServer
-func registerWithNameServer(serverAddr string) {
+func registerWithNameServer(serverAddr string, weight float64) {
 	nameServerAddr := "localhost:9000" // Indirizzo hardcoded del NameServer
 	
-	log.Printf("Tentativo di registrazione sul NameServer a %s...", nameServerAddr)
+	log.Printf("Tentativo di registrazione sul NameServer a %s con peso %.2f", nameServerAddr, weight)
 	
 	// Connessione al NameServer
 	client, err := rpc.Dial("tcp", nameServerAddr)
@@ -113,6 +124,7 @@ func registerWithNameServer(serverAddr string) {
 	// Prepara argomenti per la registrazione
 	args := nameserver.RegisterArgs{
 		Address: serverAddr,
+		Weight: weight,
 	}
 	var reply nameserver.RegisterReply
 	
