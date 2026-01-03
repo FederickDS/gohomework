@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/rpc"
 	"os"
-	"strconv"
 	
 	"project/nameserver"
 	"project/services"
@@ -19,23 +18,37 @@ var serverAddr string
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Printf("Usage: %s <type of service (0 - fibonacci, 1 - counter)> [<other args>]\n", os.Args[0])
+		fmt.Println("Usage: %s <type of load balancing: stateless or stateful>\n", os.Args[0])
+		fmt.Println("Example: %s stateless", os.Args[0])
 		os.Exit(1)
 	}
 	
 	// Esegui lookup dei server disponibili dal NameServer
 	lookup()
 	
-	// Controlla il tipo di funzione
-	serviceType := os.Args[1]
-	switch serviceType {
-	case "0":
-		fibonacci()
-	case "1":
-		counter()
-	default:
-		fmt.Printf("Invalid service type. Use 0 for fibonacci or 1 for counter\n")
-		os.Exit(1)
+	//ciclo while infinito per ricevere le richieste
+	for ; ; {
+		var serviceType int
+		fmt.Println("Service lookup. You can ask:")
+		fmt.Println("0 : Fibonacci of a number \"n\"")
+		fmt.Println("1 : Counting the occurrences of a word over every client")
+		fmt.Println("2 : Exit")
+		_, err := fmt.Scan(&serviceType)
+		if err != nil {
+			fmt.Printf("Invalid input: %v\n", err)
+			continue
+		}
+		switch serviceType {
+		case 0:
+			fibonacci()
+		case 1:
+			counter()
+		case 2:
+			fmt.Println("See you next time")
+			os.Exit(0)
+		default:
+			fmt.Println("Invalid service type. Use 0 for fibonacci, 1 for counter, 2 for exit\n")
+		}
 	}
 }
 
@@ -79,16 +92,22 @@ func lookup() {
 }
 
 func fibonacci() {
-	if len(os.Args) < 3 {
-		fmt.Printf("Usage: %s 0 <positive integer>\n", os.Args[0])
-		fmt.Printf("Example: client 0 10\n")
-		os.Exit(1)
-	}
-	
-	// Ottieni indice fibonacci
-	n, err := strconv.Atoi(os.Args[2])
-	if err != nil {
-		log.Fatalf("Invalid Fibonacci index: %v", err)
+	var n int = -1
+	for n < 0 {
+		fmt.Println("Insert the fibonacci index (non-negative number): ")
+		// Ottieni indice fibonacci
+		_, err := fmt.Scan(&n)
+		if err != nil {
+			fmt.Printf("Invalid input: %v\n", err)
+			// Pulisci il buffer di input
+			var discard string
+			fmt.Scanln(&discard)
+			n = -1
+			continue
+		}
+		if n < 0 {
+			fmt.Println("Error: Index must be non-negative")
+		}
 	}
 	
 	// Connessione con server RPC
@@ -116,15 +135,20 @@ func fibonacci() {
 }
 
 func counter() {
-	if len(os.Args) < 4 {
-		fmt.Printf("Usage: %s 1 <username> <password>\n", os.Args[0])
-		fmt.Printf("Example: client 1 mario rossi123\n")
-		os.Exit(1)
-	}
-	
+	var username string
+	var password string
+
 	// Ottieni credenziali
-	username := os.Args[2]
-	password := os.Args[3]
+	fmt.Printf("Username: ")
+	_, err := fmt.Scan(&username)
+	if err != nil{
+		log.Fatalf("Failed to recieve username string: %v", err)
+	}
+	fmt.Printf("password: ")
+	_, err = fmt.Scan(&password)
+	if err != nil{
+		log.Fatalf("Failed to recieve password string: %v", err)
+	}	
 	
 	// Connessione con server RPC
 	client, err := rpc.Dial("tcp", serverAddr)
