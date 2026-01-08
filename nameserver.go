@@ -38,7 +38,7 @@ func (ns *NameServer) Register(args *nameserver.RegisterArgs, reply *nameserver.
 	weight := args.Weight
 	if weight <= 0 || weight > 1 {
 		weight = 1.0 // default
-		fmt.Printf("Peso non valido per %s, impostato a default 1.0", args.Address)
+		fmt.Printf("Peso non valido per %s, impostato a default 1.0\n", args.Address)
 	}
 
 	// controlla se il server è già registrato
@@ -52,7 +52,7 @@ func (ns *NameServer) Register(args *nameserver.RegisterArgs, reply *nameserver.
 			}
 			reply.Success = true
 			reply.Message = fmt.Sprintf("Server %s già registrato, peso aggiornato a %.2f", args.Address, weight)
-			fmt.Printf("Server %s peso aggiornato: %.2f", args.Address, weight)
+			fmt.Printf("Server %s peso aggiornato: %.2f\n", args.Address, weight)
 		} else {
 			reply.Success = true
 			reply.Message = fmt.Sprintf("Server %s già registrato con peso %.2f", args.Address, weight)
@@ -70,8 +70,8 @@ func (ns *NameServer) Register(args *nameserver.RegisterArgs, reply *nameserver.
 	reply.Success = true
 	reply.Message = fmt.Sprintf("Server %s registrato con successo (peso: %.2f)", args.Address, weight)
 
-	fmt.Printf("Nuovo server registrato: %s (peso: %.2f)", args.Address, weight)
-	fmt.Printf("Totale server registrati: %d", len(ns.servers))
+	fmt.Printf("Nuovo server registrato: %s (peso: %.2f)\n", args.Address, weight)
+	fmt.Printf("Totale server registrati: %d\n", len(ns.servers))
 
 	return nil
 }
@@ -100,8 +100,8 @@ func (ns *NameServer) Deregister(args *nameserver.DeregisterArgs, reply *nameser
 	reply.Success = true
 	reply.Message = fmt.Sprintf("Server %s deregistrato con successo", args.Address)
 
-	fmt.Printf("Server deregistrato: %s", args.Address)
-	fmt.Printf("Totale server registrati: %d", len(ns.servers))
+	fmt.Printf("Server deregistrato: %s\n", args.Address)
+	fmt.Printf("Totale server registrati: %d\n", len(ns.servers))
 
 	return nil
 }
@@ -116,7 +116,7 @@ func (ns *NameServer) Lookup(args *nameserver.LookupArgs, reply *nameserver.Look
 		reply.Servers = append(reply.Servers, serverInfo)
 	}
 
-	fmt.Printf("Lookup richiesto: restituiti %d server", len(reply.Servers))
+	fmt.Printf("Lookup richiesto: restituiti %d server\n", len(reply.Servers))
 
 	return nil
 }
@@ -151,7 +151,7 @@ func main() {
 	}
 	defer lis.Close()
 
-	fmt.Printf("NameServer nameserver in ascolto all'indirizzo %s", lis.Addr().String())
+	fmt.Printf("NameServer in ascolto all'indirizzo %s\n", lis.Addr().String())
 	fmt.Println("Metodi disponibili:")
 	fmt.Println("  - NameServer.Register")
 	fmt.Println("  - NameServer.Deregister")

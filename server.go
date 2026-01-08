@@ -49,7 +49,7 @@ func main() {
 		var possibleWeight float64
 		_, err := fmt.Sscanf(os.Args[2], "%f", &possibleWeight)
 		if err != nil || possibleWeight <= 0 || possibleWeight > 1 {
-			fmt.Printf("Peso non valido '%s', scelto peso %f", os.Args[2], serverWeight)
+			fmt.Printf("Peso non valido '%s', scelto peso %f\n", os.Args[2], serverWeight)
 		} else {
 			serverWeight = possibleWeight
 		}
@@ -73,7 +73,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Impossibile connettersi a Redis: %v", err)
 	}
-	fmt.Printf("Connesso a Redis su %s", redisAddr)
+	fmt.Printf("Connesso a Redis su %s\n", redisAddr)
 
 	// crea istanza del servizio Aritmetico
 	aritmeticoService := new(services.Aritmetico)
@@ -110,11 +110,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Impossibile mettere in ascolto il server: ", err)
 	} else {
-		fmt.Println("Server registrato con porta %s", port)
+		fmt.Printf("Server registrato con porta %s\n", port)
 	}
 	defer lis.Close()
 
-	fmt.Println("Server RPC in ascolto all'indirizzo %s", lis.Addr().String())
+	fmt.Printf("Server RPC in ascolto all'indirizzo %s\n", lis.Addr().String())
 	fmt.Println("Servizi disponibili:")
 	fmt.Println("  - Aritmetico.Fibonacci")
 	fmt.Println("  - Contatore.Counter")
@@ -130,7 +130,7 @@ func main() {
 	// goroutine per gestire la deregistrazione su segnale
 	go func() {
 		sig := <-sigChan
-		fmt.Printf("\nRicevuto segnale %v, deregistrazione in corso...", sig)
+		fmt.Printf("\nRicevuto segnale %v, deregistrazione in corso...\n", sig)
 		deregisterFromNameServer(serverAddress)
 		lis.Close()
 		os.Exit(0)
@@ -143,12 +143,10 @@ func main() {
 func registerWithNameServer(serverAddr string, weight float64) {
 	nameServerAddr := "localhost:9000"
 
-	fmt.Printf("Tentativo di registrazione sul NameServer a %s con peso %.2f", nameServerAddr, weight)
-
 	// connessione al NameServer
 	client, err := rpc.Dial("tcp", nameServerAddr)
 	if err != nil {
-		log.Println("Impossibile connettersi al NameServer: %v", err)
+		log.Printf("Impossibile connettersi al NameServer: %v\n", err)
 		log.Println("Il server continuerà comunque ad operare")
 		return
 	}
@@ -168,7 +166,7 @@ func registerWithNameServer(serverAddr string, weight float64) {
 	}
 
 	if reply.Success {
-		fmt.Printf("Registrazione completata: %s", reply.Message)
+		fmt.Printf("Registrazione completata: %s\n", reply.Message)
 	} else {
 		log.Fatalf("Registrazione fallita: %s", reply.Message)
 	}
@@ -178,7 +176,7 @@ func registerWithNameServer(serverAddr string, weight float64) {
 func deregisterFromNameServer(serverAddr string) {
 	nameServerAddr := "localhost:9000"
 
-	fmt.Printf("Deregistrazione dal NameServer a %s...", nameServerAddr)
+	fmt.Printf("Deregistrazione dal NameServer a %s in corso\n", nameServerAddr)
 
 	// connessione al NameServer
 	client, err := rpc.Dial("tcp", nameServerAddr)
@@ -200,7 +198,7 @@ func deregisterFromNameServer(serverAddr string) {
 	}
 
 	if reply.Success {
-		fmt.Printf("Deregistrazione completata: %s", reply.Message)
+		fmt.Printf("Deregistrazione completata: %s\n", reply.Message)
 	} else {
 		log.Fatalf("Deregistrazione fallita: %s", reply.Message)
 	}

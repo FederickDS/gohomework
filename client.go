@@ -26,8 +26,8 @@ var roundRobinIndex int = 0
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Apri l'appilcazione scrivendo: %s <type of load balancing: stateless or stateful>\n", os.Args[0])
-		fmt.Println("Esempio: %s stateless", os.Args[0])
+		fmt.Printf("Apri l'appilcazione scrivendo: %s <type of load balancing: stateless or stateful>\n", os.Args[0])
+		fmt.Printf("Esempio: %s stateless", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -39,13 +39,13 @@ func main() {
 		selectServer()
 		// scelta servizio
 		var serviceType int
-		fmt.Println("Il metodo richiesto verrà eseguito su un server remoto. Scegli il servizio da eseguire con il numero:")
-		fmt.Println("0 : Calcolo indice di fibonacci \"n\"")
+		fmt.Printf("\nIl metodo richiesto verrà eseguito su un server remoto.\nScegli il servizio da eseguire con il numero a sinistra della riga\n")
+		fmt.Println("0 : Calcolo indice di fibonacci")
 		fmt.Println("1 : Conta quante volte una parola è stata richiesta da ogni client")
 		fmt.Println("2 : Esci")
 		_, err := fmt.Scan(&serviceType)
 		if err != nil {
-			fmt.Printf("Invalid input: %v\n", err)
+			fmt.Println("Invalid input: %v\n", err)
 			continue
 		}
 		switch serviceType {
@@ -57,7 +57,7 @@ func main() {
 			fmt.Println("Alla prossima")
 			os.Exit(0)
 		default:
-			fmt.Println("Tipo di servizio scelto invalido. Riprova\n")
+			fmt.Println("Tipo di servizio scelto invalido. Riprova")
 		}
 	}
 }
@@ -65,8 +65,6 @@ func main() {
 // lookup contatta il NameServer per ottenere la lista dei server disponibili
 func lookup() {
 	nameServerAddr := "localhost:9000" // indirizzo del NameServer
-
-	fmt.Printf("Contatto il NameServer su %s per ottenere i server disponibili...", nameServerAddr)
 
 	// connessione al NameServer
 	client, err := rpc.Dial("tcp", nameServerAddr)
@@ -91,9 +89,9 @@ func lookup() {
 	}
 
 	availableServers = reply.Servers
-	fmt.Printf("Trovati %d server disponibili:", len(availableServers))
+	fmt.Printf("Trovati %d server disponibili\n", len(availableServers))
 	for i, server := range availableServers {
-		fmt.Printf("  [%d] %s", i, server)
+		fmt.Printf("  [%d] %s\n", i, server.Address)
 	}
 }
 
@@ -106,14 +104,13 @@ func selectServer() {
 	case "stateless":
 		selectServerStateless()
 	default:
-		fmt.Println("Errore: algoritmo sbagliato scelto in input")
+		fmt.Println("Algoritmo sbagliato scelto in input. Riparti con go run client.go [stateless/stateful]")
 		os.Exit(1)
 	}
 }
 
 func selectServerStateless() {
 	serverAddr = availableServers[roundRobinIndex].Address
-	fmt.Println("Indirizzo server: %s", serverAddr)
 	roundRobinIndex = (roundRobinIndex + 1) % len(availableServers)
 }
 
@@ -126,7 +123,6 @@ func selectServerStateful() {
 
 	// numero casuale tra 0 e totalWeight
 	randomValue := rand.New(rand.NewSource(time.Now().UnixMilli())).Float64() * totalWeight
-	fmt.Printf("Somma pesi: %.f, valore casuale: %.f\n", totalWeight, randomValue)
 	// raggiungi server scelto casualmente
 	cumulativeWeight := 0.0
 	for _, server := range availableServers {
@@ -141,7 +137,7 @@ func selectServerStateful() {
 func fibonacci() {
 	var n int = -1
 	for n < 0 {
-		fmt.Println("Numero di fibonacci a posizione: ")
+		fmt.Printf("Numero di fibonacci a posizione: ")
 		// ottieni indice fibonacci
 		_, err := fmt.Scan(&n)
 		if err != nil {
@@ -164,7 +160,7 @@ func fibonacci() {
 	}
 	defer client.Close()
 
-	fmt.Printf("Connessione al server riuscita %s", serverAddr)
+	fmt.Printf("Connessione al server con indirizzo %s\n", serverAddr)
 
 	// argomenti per chiamata RPC
 	args := services.Args{Value: n}
@@ -195,7 +191,7 @@ func counter() {
 	}
 	defer client.Close()
 
-	log.Printf("Connesso al server all'indirizzo %s", serverAddr)
+	fmt.Printf("Connesso al server all'indirizzo %s\n", serverAddr)
 
 	// prepara argomenti per chiamata RPC
 	args := services.CounterArgs{
@@ -209,6 +205,5 @@ func counter() {
 		log.Fatalf("Chiamata RPC fallita: %v", err)
 	}
 
-	fmt.Println("La parola: %s e' stata richiesta %d volte", word, result.RequestCount)
-	fmt.Printf("%s\n", result.Message)
+	fmt.Printf("La parola: %s e' stata richiesta %d volte\n", word, result.RequestCount)
 }
