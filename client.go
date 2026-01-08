@@ -12,38 +12,37 @@ import (
 	"project/services"
 )
 
-// Lista dei server disponibili ottenuta dal NameServer
+// lista dei server disponibili ottenuta dal NameServer
 var availableServers []nameserver.ServerInfo
 
-// Indirizzo server selezionato dal load balancer
+// indirizzo server selezionato dal load balancer
 var serverAddr string
 
-// Tipo di load balancing scelto
+// tipo di load balancing scelto
 var loadBalancingType string
 
-// Indice per Round Robin in algoritmo stateless
+// indice per Round Robin in algoritmo stateless
 var roundRobinIndex int = 0
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: %s <type of load balancing: stateless or stateful>\n", os.Args[0])
-		fmt.Println("Example: %s stateless", os.Args[0])
+		fmt.Println("Apri l'appilcazione scrivendo: %s <type of load balancing: stateless or stateful>\n", os.Args[0])
+		fmt.Println("Esempio: %s stateless", os.Args[0])
 		os.Exit(1)
 	}
 
-	// Esegui lookup dei server disponibili dal NameServer
+	// lookup dei server disponibili
 	lookup()
 
-	//ciclo infinito per ricevere le richieste
 	for {
-		// selezionamento server
+		// scelta server ad ogni nuova richiesta del servizio
 		selectServer()
-		// selezionamento servizio
+		// scelta servizio
 		var serviceType int
-		fmt.Println("Service lookup. You can ask:")
-		fmt.Println("0 : Fibonacci of a number \"n\"")
-		fmt.Println("1 : Counting the occurrences of a word over every client")
-		fmt.Println("2 : Exit")
+		fmt.Println("Il metodo richiesto verrà eseguito su un server remoto. Scegli il servizio da eseguire con il numero:")
+		fmt.Println("0 : Calcolo indice di fibonacci \"n\"")
+		fmt.Println("1 : Conta quante volte una parola è stata richiesta da ogni client")
+		fmt.Println("2 : Esci")
 		_, err := fmt.Scan(&serviceType)
 		if err != nil {
 			fmt.Printf("Invalid input: %v\n", err)
@@ -55,46 +54,46 @@ func main() {
 		case 1:
 			counter()
 		case 2:
-			fmt.Println("See you next time")
+			fmt.Println("Alla prossima")
 			os.Exit(0)
 		default:
-			fmt.Println("Invalid service type. Use 0 for fibonacci, 1 for counter, 2 for exit\n")
+			fmt.Println("Tipo di servizio scelto invalido. Riprova\n")
 		}
 	}
 }
 
 // lookup contatta il NameServer per ottenere la lista dei server disponibili
 func lookup() {
-	nameServerAddr := "localhost:9000" // Indirizzo hardcoded del NameServer
+	nameServerAddr := "localhost:9000" // indirizzo del NameServer
 
-	log.Printf("Contatto il NameServer su %s per ottenere i server disponibili...", nameServerAddr)
+	fmt.Printf("Contatto il NameServer su %s per ottenere i server disponibili...", nameServerAddr)
 
-	// Connessione al NameServer
+	// connessione al NameServer
 	client, err := rpc.Dial("tcp", nameServerAddr)
 	if err != nil {
-		log.Fatalf("ERRORE: Impossibile connettersi al NameServer: %v", err)
+		log.Fatalf("Impossibile connettersi al NameServer: %v", err)
 	}
 	defer client.Close()
 
-	// Prepara argomenti per la lookup (per ora vuoti)
+	// inizializza argomenti per la lookup
 	args := nameserver.LookupArgs{}
 	var reply nameserver.LookupReply
 
-	// Chiamata RPC per lookup
+	// chiamata RPC per lookup
 	err = client.Call("NameServer.Lookup", &args, &reply)
 	if err != nil {
-		log.Fatalf("ERRORE durante la lookup: %v", err)
+		log.Fatalf("Errore durante la lookup: %v", err)
 	}
 
-	// Verifica che ci siano server disponibili
+	// verifica che ci siano server disponibili
 	if len(reply.Servers) == 0 {
-		log.Fatalf("ERRORE: Nessun server disponibile. Avvia almeno un server prima del client.")
+		log.Fatalf("Nessun server disponibile. Almeno un server deve essere attivo prima del client.")
 	}
 
 	availableServers = reply.Servers
-	log.Printf("Trovati %d server disponibili:", len(availableServers))
+	fmt.Printf("Trovati %d server disponibili:", len(availableServers))
 	for i, server := range availableServers {
-		log.Printf("  [%d] %s", i, server)
+		fmt.Printf("  [%d] %s", i, server)
 	}
 }
 
@@ -107,30 +106,28 @@ func selectServer() {
 	case "stateless":
 		selectServerStateless()
 	default:
-		fmt.Println("ERRORE: algoritmo sbagliato scelto in input")
+		fmt.Println("Errore: algoritmo sbagliato scelto in input")
 		os.Exit(1)
 	}
 }
 
 func selectServerStateless() {
 	serverAddr = availableServers[roundRobinIndex].Address
-	fmt.Println("serverAddr: %s", serverAddr)
+	fmt.Println("Indirizzo server: %s", serverAddr)
 	roundRobinIndex = (roundRobinIndex + 1) % len(availableServers)
 }
 
 func selectServerStateful() {
-	// per generare numeri casuali
-	rand.Seed(time.Now().UnixNano())
-	//calcolo somma totale dei pesi
+	// calcolo somma totale dei pesi
 	totalWeight := 0.0
 	for _, server := range availableServers {
 		totalWeight += server.Weight
 	}
 
-	//numero casuale tra 0 e totalWeight
+	// numero casuale tra 0 e totalWeight
 	randomValue := rand.New(rand.NewSource(time.Now().UnixMilli())).Float64() * totalWeight
-	fmt.Printf("somma pesi: %.f, valore casuale: %.f\n", totalWeight, randomValue)
-	//raggiungi server scelto casualmente
+	fmt.Printf("Somma pesi: %.f, valore casuale: %.f\n", totalWeight, randomValue)
+	// raggiungi server scelto casualmente
 	cumulativeWeight := 0.0
 	for _, server := range availableServers {
 		cumulativeWeight += server.Weight
@@ -144,80 +141,74 @@ func selectServerStateful() {
 func fibonacci() {
 	var n int = -1
 	for n < 0 {
-		fmt.Println("Insert the fibonacci index (non-negative number): ")
-		// Ottieni indice fibonacci
+		fmt.Println("Numero di fibonacci a posizione: ")
+		// ottieni indice fibonacci
 		_, err := fmt.Scan(&n)
 		if err != nil {
-			fmt.Printf("Invalid input: %v\n", err)
-			// Pulisci il buffer di input
+			fmt.Printf("L'input non è un numero. Riprova: %v\n", err)
+			// pulizia buffer di input per sicurezza
 			var discard string
 			fmt.Scanln(&discard)
 			n = -1
 			continue
 		}
 		if n < 0 {
-			fmt.Println("Error: Index must be non-negative")
+			fmt.Println("La posizione è un numero non negativo. Riprova")
 		}
 	}
 
-	// Connessione con server RPC
+	// connessione con server RPC
 	client, err := rpc.Dial("tcp", serverAddr)
 	if err != nil {
-		log.Fatalf("Failed to connect to server at %s: %v", serverAddr, err)
+		log.Fatalf("Connessione al server %s e'fallita: %v", serverAddr, err)
 	}
 	defer client.Close()
 
-	log.Printf("Connected to server at %s", serverAddr)
+	fmt.Printf("Connessione al server riuscita %s", serverAddr)
 
-	// Prepare arguments
+	// argomenti per chiamata RPC
 	args := services.Args{Value: n}
 	var result services.Result
 
-	// Chiamata RPC sincrona
-	log.Printf("Calling Aritmetico.Fibonacci with N=%d", n)
+	// chiamata RPC per il numero di fibonacci
 	err = client.Call("Aritmetico.Fibonacci", &args, &result)
 	if err != nil {
-		log.Fatalf("RPC call failed: %v", err)
+		log.Fatalf("La chiamata RPC ha fallito: %v", err)
 	}
 
-	// Display result
 	fmt.Printf("Fibonacci(%d) = %d\n", n, result.Value)
 }
 
 func counter() {
 	var word string
 
-	// Ottieni credenziali
-	fmt.Printf("word to count the occurrences: ")
+	fmt.Printf("Inserisci parola di cui contare le occorrenze: ")
 	_, err := fmt.Scan(&word)
 	if err != nil {
-		log.Fatalf("Failed to recieve word to search occurrences: %v", err)
+		log.Fatalf("Impossibile salvare la parola: %v", err)
 	}
 
-	// Connessione con server RPC
+	// connessione con server RPC
 	client, err := rpc.Dial("tcp", serverAddr)
 	if err != nil {
-		log.Fatalf("Failed to connect to server at %s: %v", serverAddr, err)
+		log.Fatalf("Connessione al server all'indirizzo %s fallita: %v", serverAddr, err)
 	}
 	defer client.Close()
 
-	log.Printf("Connected to server at %s", serverAddr)
+	log.Printf("Connesso al server all'indirizzo %s", serverAddr)
 
-	// Prepare arguments
+	// prepara argomenti per chiamata RPC
 	args := services.CounterArgs{
 		Word: word,
 	}
 	var result services.CounterResult
 
-	// Chiamata RPC sincrona
-	log.Printf("Calling Contatore.Counter for user %s", word)
+	// Chiamata RPC al contatore
 	err = client.Call("Contatore.Counter", &args, &result)
 	if err != nil {
-		log.Fatalf("RPC call failed: %v", err)
+		log.Fatalf("Chiamata RPC fallita: %v", err)
 	}
 
-	// Display result
-	fmt.Printf("User: %s\n", word)
-	fmt.Printf("Request count: %d\n", result.RequestCount)
+	fmt.Println("La parola: %s e' stata richiesta %d volte", word, result.RequestCount)
 	fmt.Printf("%s\n", result.Message)
 }

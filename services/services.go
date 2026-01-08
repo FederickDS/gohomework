@@ -10,12 +10,12 @@ import (
 
 type Aritmetico struct{}
 
-// Valori di input dipendono dal numero massimo di argomenti forniti da funzione
+// Args e'l'indice del numero di fibonacci
 type Args struct {
 	Value int
 }
 
-// Valore di ritorno per metodo Fibonacci
+// Result e' il numero di fibonacci corrispondente ad Args.Value
 type Result struct {
 	Value int
 }
@@ -25,7 +25,6 @@ func (t *Aritmetico) Fibonacci(args *Args, res *Result) error {
 		return errors.New("indice fibonacci non puo' essere negativo")
 	}
 
-	// Casi immediati (avendo visto che sono >= 0)
 	if args.Value < 2 {
 		res.Value = args.Value
 		return nil
@@ -40,43 +39,42 @@ func (t *Aritmetico) Fibonacci(args *Args, res *Result) error {
 	return nil
 }
 
-// --- SERVIZIO STATEFUL CON REDIS ---
-
-// Contatore service per tenere traccia delle richieste per utente
+// servizio stateful
+// struttura di riferimento per redis
 type Contatore struct {
 	RedisClient *redis.Client
 }
 
-// CounterArgs - Input per il servizio Counter
+// stringa da cercare nel servizio di persistenza, che invece dipende da Contatore
 type CounterArgs struct {
 	Word string
 }
 
-// CounterResult - Risultato del servizio Counter
+// oltre al numero di occorrenze della stringa abbiamo un messaggio personalizzato
 type CounterResult struct {
 	RequestCount int
 	Message      string
 }
 
-// Counter incrementa il contatore di richieste per l'utente specificato
+// incrementa il contatore di richieste per l'utente specificato
 func (c *Contatore) Counter(args *CounterArgs, res *CounterResult) error {
 	if args.Word == "" {
-		return errors.New("La parola da cercare non possono essere vuota")
+		return errors.New("La parola da cercare non puo' essere vuota")
 	}
 
 	ctx := context.Background()
 
-	// Chiave Redis: "user:<Word>:count"
+	// chiave Redis: "user:<Word>:count"
 	key := fmt.Sprintf("user:%s:count", args.Word)
 
-	// Incrementa il contatore in Redis
+	// incrementa il contatore in Redis
 	count, err := c.RedisClient.Incr(ctx, key).Result()
 	if err != nil {
 		return fmt.Errorf("errore Redis: %v", err)
 	}
 
 	res.RequestCount = int(count)
-	res.Message = fmt.Sprintf("Richiesta #%d per l'utente %s", count, args.Word)
+	res.Message = fmt.Sprintf("la parola %s e'stata cercata %d volte", args.Word, count)
 
 	return nil
 }

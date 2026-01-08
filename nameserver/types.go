@@ -1,41 +1,41 @@
 package nameserver
 
-// ServerInfo contiene le informazioni di un server registrato
+// informazioni di un server registrato
 type ServerInfo struct {
-	Address string  // Indirizzo completo (es: "192.168.1.10:12345")
-	Port    string  // Porta (es: "12345")
-	Weight  float64 // Peso per load balancing (0.0 - 1.0)
+	Address string  // indirizzo completo (es: "192.168.1.10:12345")
+	Port    string  // porta (es: "12345")
+	Weight  float64 // peso per load balancing (0.0 - 1.0)
 }
 
-// RegisterArgs - Argomenti per la registrazione di un server
+// argomenti per la registrazione di un server
 type RegisterArgs struct {
-	Address string  // Indirizzo IP + porta del server (es: "localhost:12345")
-	Weight  float64 // Peso del server per load balancing (default: 1.0)
+	Address string  // indirizzo IP + porta del server (es: "localhost:12345")
+	Weight  float64 // peso del server per load balancing
 }
 
-// RegisterReply - Risposta alla registrazione
+// risposta alla registrazione di un server
 type RegisterReply struct {
 	Success bool
 	Message string
 }
 
-// DeregisterArgs - Argomenti per la deregistrazione di un server
+// argomenti per la deregistrazione di un server
 type DeregisterArgs struct {
-	Address string // Indirizzo del server da rimuovere
+	Address string // indirizzo del server da rimuovere
 }
 
-// DeregisterReply - Risposta alla deregistrazione
+// risposta alla deregistrazione di un server
 type DeregisterReply struct {
 	Success bool
 	Message string
 }
 
-// LookupArgs - Argomenti per la query di lookup
+// argomenti per la query di lookup
 type LookupArgs struct {
-	ServiceName string // Nome del servizio richiesto (opzionale per ora)
+	ServiceName string // nome del servizio richiesto
 }
 
-// LookupReply - Risposta con la lista dei server disponibili e i loro pesi
+// risposta del nameserver al client
 type LookupReply struct {
-	Servers []ServerInfo // Lista di server con informazioni complete (indirizzo + peso)
+	Servers []ServerInfo // lista con info dei server
 }

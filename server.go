@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"net/rpc"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
+	"time"
 
 	"project/nameserver"
 	"project/services"
@@ -16,24 +20,42 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const portTries int = 100
+
 func main() {
-	// Porta di default o da argomento
+	/*
+		la porta del server o viene impostata come primo argomento,
+		oppure viene messa di default con 12345
+		oppure da 12345 controlla se possiamo connetterci a una porta da 12345 alle N successive,
+		N numero definito come costante all'inizio del file
+	*/
 	port := ":12345"
-	serverWeight := 1.0
+	portInt, err := strconv.Atoi(strings.TrimPrefix(port, ":")) // numero di porta, in generale data la stringa della porta tolgo il prefisso e converto
+	if err != nil {
+		log.Fatalf("Errore di conversione:", err)
+	}
+	// server di default valore casuale tra 0 e 1 o da argomento
+	serverWeight := rand.New(rand.NewSource(time.Now().UnixMilli())).Float64()
+	// impostata priorita'massima se peso scelto casualmente non ha un peso tra 0 e 1
+	if serverWeight <= 0 || serverWeight > 1 {
+		serverWeight = 1.0
+	}
 
 	if len(os.Args) > 1 {
 		port = ":" + os.Args[1]
 	}
 
 	if len(os.Args) > 2 {
-		_, err := fmt.Sscanf(os.Args[2], "%f", &serverWeight)
-		if err != nil || serverWeight <= 0 || serverWeight > 1 {
-			log.Printf("Peso non valido '%s', uso default 1.0", os.Args[2])
-			serverWeight = 1.0
+		var possibleWeight float64
+		_, err := fmt.Sscanf(os.Args[2], "%f", &possibleWeight)
+		if err != nil || possibleWeight <= 0 || possibleWeight > 1 {
+			fmt.Printf("Peso non valido '%s', scelto peso %f", os.Args[2], serverWeight)
+		} else {
+			serverWeight = possibleWeight
 		}
 	}
 
-	// Configura connessione Redis
+	// configura connessione Redis
 	redisAddr := "localhost:6379"
 	if redisEnv := os.Getenv("REDIS_ADDR"); redisEnv != "" {
 		redisAddr = redisEnv
@@ -47,16 +69,16 @@ func main() {
 
 	// Verifica connessione Redis
 	ctx := context.Background()
-	_, err := redisClient.Ping(ctx).Result()
+	_, err = redisClient.Ping(ctx).Result()
 	if err != nil {
 		log.Fatalf("Impossibile connettersi a Redis: %v", err)
 	}
-	log.Printf("Connesso a Redis su %s", redisAddr)
+	fmt.Printf("Connesso a Redis su %s", redisAddr)
 
-	// Crea istanza del servizio Aritmetico
+	// crea istanza del servizio Aritmetico
 	aritmeticoService := new(services.Aritmetico)
 
-	// Crea istanza del servizio Contatore con Redis client
+	// crea istanza del servizio Contatore con Redis client
 	contatoreService := &services.Contatore{
 		RedisClient: redisClient,
 	}
@@ -66,113 +88,120 @@ func main() {
 
 	err = server.RegisterName("Aritmetico", aritmeticoService)
 	if err != nil {
-		log.Fatal("Failed to register Aritmetico service: ", err)
+		log.Fatal("Impossibile registrare il servizio Aritmetico: ", err)
 	}
 
 	err = server.RegisterName("Contatore", contatoreService)
 	if err != nil {
-		log.Fatal("Failed to register Contatore service: ", err)
+		log.Fatal("Impossibile registrare il servizio Contatore: ", err)
 	}
 
-	// Ascolta connessioni TCP in ingresso
-	lis, err := net.Listen("tcp", port)
+	// ascolta connessioni TCP in ingresso
+	var lis net.Listener //lis viene visto anche fuori, viene definito o usciamo con l'if a seguito del controllo dell'errore
+	for i := 0; i < portTries; i++ {
+		lis, err = net.Listen("tcp", port)
+		if err == nil {
+			break
+		}
+		portInt++
+		port = fmt.Sprintf(":%d", portInt)
+	}
+
 	if err != nil {
-		log.Fatal("Listen error: ", err)
+		log.Fatal("Impossibile mettere in ascolto il server: ", err)
+	} else {
+		fmt.Println("Server registrato con porta %s", port)
 	}
 	defer lis.Close()
 
-	fmt.Println("RPC server listening on %s", lis.Addr().String())
-	fmt.Println("Available services:")
+	fmt.Println("Server RPC in ascolto all'indirizzo %s", lis.Addr().String())
+	fmt.Println("Servizi disponibili:")
 	fmt.Println("  - Aritmetico.Fibonacci")
 	fmt.Println("  - Contatore.Counter")
 
-	// Registra questo server sul NameServer prima di accettare richieste
+	// registra questo server sul NameServer prima di accettare richieste
 	serverAddress := lis.Addr().String()
 	registerWithNameServer(serverAddress, serverWeight)
 
-	// Setup signal handler per deregistrazione pulita
+	// setup signal handler per deregistrazione pulita
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	// Goroutine per gestire la deregistrazione su segnale
+	// goroutine per gestire la deregistrazione su segnale
 	go func() {
 		sig := <-sigChan
-		log.Printf("\nRicevuto segnale %v, deregistrazione in corso...", sig)
+		fmt.Printf("\nRicevuto segnale %v, deregistrazione in corso...", sig)
 		deregisterFromNameServer(serverAddress)
 		lis.Close()
 		os.Exit(0)
 	}()
 
-	// Accetta e serve le richieste
 	server.Accept(lis)
 }
 
 // registerWithNameServer registra questo server sul NameServer
 func registerWithNameServer(serverAddr string, weight float64) {
-	nameServerAddr := "localhost:9000" // Indirizzo hardcoded del NameServer
+	nameServerAddr := "localhost:9000"
 
-	log.Printf("Tentativo di registrazione sul NameServer a %s con peso %.2f", nameServerAddr, weight)
+	fmt.Printf("Tentativo di registrazione sul NameServer a %s con peso %.2f", nameServerAddr, weight)
 
-	// Connessione al NameServer
+	// connessione al NameServer
 	client, err := rpc.Dial("tcp", nameServerAddr)
 	if err != nil {
-		log.Printf("ATTENZIONE: Impossibile connettersi al NameServer: %v", err)
+		log.Println("Impossibile connettersi al NameServer: %v", err)
 		log.Println("Il server continuerà comunque ad operare")
 		return
 	}
 	defer client.Close()
 
-	// Prepara argomenti per la registrazione
+	// prepara argomenti per la registrazione
 	args := nameserver.RegisterArgs{
 		Address: serverAddr,
 		Weight:  weight,
 	}
 	var reply nameserver.RegisterReply
 
-	// Chiamata RPC per registrazione
+	// chiamata RPC per registrazione
 	err = client.Call("NameServer.Register", &args, &reply)
 	if err != nil {
-		log.Printf("ERRORE durante la registrazione: %v", err)
-		return
+		log.Fatalf("Errore durante la registrazione: %v", err)
 	}
 
 	if reply.Success {
-		log.Printf("Registrazione completata: %s", reply.Message)
+		fmt.Printf("Registrazione completata: %s", reply.Message)
 	} else {
-		log.Printf("Registrazione fallita: %s", reply.Message)
+		log.Fatalf("Registrazione fallita: %s", reply.Message)
 	}
 }
 
 // deregisterFromNameServer deregistra questo server dal NameServer
 func deregisterFromNameServer(serverAddr string) {
-	nameServerAddr := "localhost:9000" // Indirizzo hardcoded del NameServer
+	nameServerAddr := "localhost:9000"
 
-	log.Printf("Deregistrazione dal NameServer a %s...", nameServerAddr)
+	fmt.Printf("Deregistrazione dal NameServer a %s...", nameServerAddr)
 
-	// Connessione al NameServer
+	// connessione al NameServer
 	client, err := rpc.Dial("tcp", nameServerAddr)
 	if err != nil {
-		log.Printf("ATTENZIONE: Impossibile connettersi al NameServer: %v", err)
-		return
+		log.Fatalf("Impossibile connettersi al NameServer: %v", err)
 	}
 	defer client.Close()
 
-	// Prepara argomenti per la deregistrazione
+	// prepara argomenti per la deregistrazione
 	args := nameserver.DeregisterArgs{
 		Address: serverAddr,
 	}
 	var reply nameserver.DeregisterReply
 
-	// Chiamata RPC per deregistrazione
+	// chiamata RPC per deregistrazione
 	err = client.Call("NameServer.Deregister", &args, &reply)
 	if err != nil {
-		log.Printf("ERRORE durante la deregistrazione: %v", err)
-		return
+		log.Fatalf("Errore durante la deregistrazione: %v", err)
 	}
 
 	if reply.Success {
-		log.Printf("Deregistrazione completata: %s", reply.Message)
+		fmt.Printf("Deregistrazione completata: %s", reply.Message)
 	} else {
-		log.Printf("Deregistrazione fallita: %s", reply.Message)
+		log.Fatalf("Deregistrazione fallita: %s", reply.Message)
 	}
 }

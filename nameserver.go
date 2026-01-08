@@ -23,7 +23,7 @@ func NewNameServer() *NameServer {
 	}
 }
 
-// Register registra un nuovo server
+// registra un nuovo server
 func (ns *NameServer) Register(args *nameserver.RegisterArgs, reply *nameserver.RegisterReply) error {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
@@ -34,16 +34,16 @@ func (ns *NameServer) Register(args *nameserver.RegisterArgs, reply *nameserver.
 		return fmt.Errorf("indirizzo vuoto")
 	}
 
-	// Valida il peso (deve essere tra 0 e 1)
+	// controlla se il peso e'tra 0 o 1
 	weight := args.Weight
 	if weight <= 0 || weight > 1 {
-		weight = 1.0 // Peso di default
-		log.Printf("Peso non valido per %s, impostato a default 1.0", args.Address)
+		weight = 1.0 // default
+		fmt.Printf("Peso non valido per %s, impostato a default 1.0", args.Address)
 	}
 
-	// Controlla se il server è già registrato
+	// controlla se il server è già registrato
 	if existing, exists := ns.servers[args.Address]; exists {
-		// Aggiorna il peso se diverso
+		// aggiorna il peso se diverso
 		if existing.Weight != weight {
 			ns.servers[args.Address] = nameserver.ServerInfo{
 				Address: args.Address,
@@ -52,16 +52,15 @@ func (ns *NameServer) Register(args *nameserver.RegisterArgs, reply *nameserver.
 			}
 			reply.Success = true
 			reply.Message = fmt.Sprintf("Server %s già registrato, peso aggiornato a %.2f", args.Address, weight)
-			log.Printf("Server %s peso aggiornato: %.2f", args.Address, weight)
+			fmt.Printf("Server %s peso aggiornato: %.2f", args.Address, weight)
 		} else {
 			reply.Success = true
 			reply.Message = fmt.Sprintf("Server %s già registrato con peso %.2f", args.Address, weight)
-			log.Printf("Server %s già presente", args.Address)
 		}
 		return nil
 	}
 
-	// Registra il nuovo server
+	// registra il nuovo server
 	ns.servers[args.Address] = nameserver.ServerInfo{
 		Address: args.Address,
 		Port:    extractPort(args.Address),
@@ -71,13 +70,13 @@ func (ns *NameServer) Register(args *nameserver.RegisterArgs, reply *nameserver.
 	reply.Success = true
 	reply.Message = fmt.Sprintf("Server %s registrato con successo (peso: %.2f)", args.Address, weight)
 
-	log.Printf("Nuovo server registrato: %s (peso: %.2f)", args.Address, weight)
-	log.Printf("Totale server registrati: %d", len(ns.servers))
+	fmt.Printf("Nuovo server registrato: %s (peso: %.2f)", args.Address, weight)
+	fmt.Printf("Totale server registrati: %d", len(ns.servers))
 
 	return nil
 }
 
-// Deregister rimuove un server dalla lista
+// rimuove un server dalla lista
 func (ns *NameServer) Deregister(args *nameserver.DeregisterArgs, reply *nameserver.DeregisterReply) error {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
@@ -88,26 +87,26 @@ func (ns *NameServer) Deregister(args *nameserver.DeregisterArgs, reply *nameser
 		return fmt.Errorf("indirizzo vuoto")
 	}
 
-	// Controlla se il server esiste
+	// controlla se il server esiste
 	if _, exists := ns.servers[args.Address]; !exists {
 		reply.Success = false
 		reply.Message = fmt.Sprintf("Server %s non trovato", args.Address)
 		return fmt.Errorf("server non registrato")
 	}
 
-	// Rimuovi il server
+	// rimuovi il server
 	delete(ns.servers, args.Address)
 
 	reply.Success = true
 	reply.Message = fmt.Sprintf("Server %s deregistrato con successo", args.Address)
 
-	log.Printf("Server deregistrato: %s", args.Address)
-	log.Printf("Totale server registrati: %d", len(ns.servers))
+	fmt.Printf("Server deregistrato: %s", args.Address)
+	fmt.Printf("Totale server registrati: %d", len(ns.servers))
 
 	return nil
 }
 
-// Lookup restituisce la lista di tutti i server registrati con i loro pesi
+// restituisce la lista di tutti i server connessi al nameserver
 func (ns *NameServer) Lookup(args *nameserver.LookupArgs, reply *nameserver.LookupReply) error {
 	ns.mu.RLock()
 	defer ns.mu.RUnlock()
@@ -117,12 +116,12 @@ func (ns *NameServer) Lookup(args *nameserver.LookupArgs, reply *nameserver.Look
 		reply.Servers = append(reply.Servers, serverInfo)
 	}
 
-	log.Printf("Lookup richiesto: restituiti %d server", len(reply.Servers))
+	fmt.Printf("Lookup richiesto: restituiti %d server", len(reply.Servers))
 
 	return nil
 }
 
-// extractPort estrae la porta da un indirizzo (es: "localhost:12345" -> "12345")
+// funzione per estrarre la porta da un indirizzo (es: "localhost:12345" -> "12345")
 func extractPort(address string) string {
 	_, port, err := net.SplitHostPort(address)
 	if err != nil {
@@ -132,32 +131,31 @@ func extractPort(address string) string {
 }
 
 func main() {
-	// Porta fissa per il nameserver (hardcoded)
+	// porta per il nameserver
 	port := ":9000"
 
-	// Crea istanza del NameServer
 	ns := NewNameServer()
 
-	// Registra il servizio RPC
 	server := rpc.NewServer()
+
+	//registra il nameserver
 	err := server.RegisterName("NameServer", ns)
 	if err != nil {
-		log.Fatal("Failed to register NameServer: ", err)
+		log.Fatal("Registrazione nameserver fallita: ", err)
 	}
 
-	// Ascolta connessioni TCP
+	//nameserver in ascolto su porta del nameserver
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
-		log.Fatal("Listen error: ", err)
+		log.Fatal("Errore ascolto del nameserver: ", err)
 	}
 	defer lis.Close()
 
-	fmt.Printf("NameServer listening on %s", lis.Addr().String())
-	fmt.Println("Available methods:")
+	fmt.Printf("NameServer nameserver in ascolto all'indirizzo %s", lis.Addr().String())
+	fmt.Println("Metodi disponibili:")
 	fmt.Println("  - NameServer.Register")
 	fmt.Println("  - NameServer.Deregister")
 	fmt.Println("  - NameServer.Lookup")
 
-	// Accetta e serve le richieste
 	server.Accept(lis)
 }
