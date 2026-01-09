@@ -49,7 +49,7 @@ Nel terminale per il **client** eseguire:
    ```bash
    go run client.go <stateless/stateful>
    ```
-E scegliere il servizio desiderato con il numero ad esso associato (0 - numero di Fibonacci, 1 - contatore delle occorrenze).
+E scegliere il servizio desiderato con il numero ad esso associato (0 - numero di Fibonacci, 1 - contatore delle occorrenze di una parola).
 
 # Sviluppatori
  * FederickDS

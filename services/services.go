@@ -53,7 +53,6 @@ type CounterArgs struct {
 // oltre al numero di occorrenze della stringa abbiamo un messaggio personalizzato
 type CounterResult struct {
 	RequestCount int
-	Message      string
 }
 
 // incrementa il contatore di richieste per l'utente specificato
@@ -74,7 +73,6 @@ func (c *Contatore) Counter(args *CounterArgs, res *CounterResult) error {
 	}
 
 	res.RequestCount = int(count)
-	res.Message = fmt.Sprintf("la parola %s e'stata cercata %d volte", args.Word, count)
 
 	return nil
 }
