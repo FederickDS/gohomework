@@ -35,12 +35,12 @@ Nel caso di Ubuntu:
    go mod tidy
    ```
 4. Avere un **terminale** per il nameserver, almeno uno per il server e uno per il client.
----
+
 Nel terminale per il **nameserver** eseguire:
    ```bash
    go run nameserver.go
    ```
----
+
 Nel terminale per il **server** eseguire:
    ```bash
    go run server.go [port number] [server weight]
